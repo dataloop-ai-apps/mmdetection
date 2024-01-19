@@ -2,7 +2,7 @@ import dtlpy as dl
 import os
 from pathlib import Path
 
-from mmlabs_obj_detection_model_adapter import Adapter
+from model_adapter import Adapter
 
 
 def deploy_package(project_id, package_name, code_base_folder_name):
@@ -16,7 +16,7 @@ def deploy_package(project_id, package_name, code_base_folder_name):
     module = dl.PackageModule(
         class_name='Adapter',
         name='model-adapter',
-        entry_point='mmlabs_obj_detection_model_adapter.py',
+        entry_point='model_adapter.py',
         init_inputs=[dl.FunctionIO(type=dl.PackageInputType.MODEL, name='model_entity')],
         functions=[
             dl.PackageFunction(
