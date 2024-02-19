@@ -1,8 +1,9 @@
 import os
-
+import subprocess
 import dtlpy as dl
 from mmdet.apis import init_detector, inference_detector
 import logging
+import torch
 
 logger = logging.getLogger('MMDetection')
 
@@ -12,18 +13,32 @@ logger = logging.getLogger('MMDetection')
                               init_inputs={'model_entity': dl.Model})
 class MMDetection(dl.BaseModelAdapter):
     def load(self, local_path, **kwargs):
-        config_file = 'rtmdet_tiny_8xb32-300e_coco.py'
-        checkpoint_file = 'rtmdet_tiny_8xb32-300e_coco_20220902_112414-78e30dcc.pth'
+
+        model_name = self.model_entity.configuration.get('model_name',
+                                                         'rtmdet_tiny_8xb32-300e_coco')
+        config_file = self.model_entity.configuration.get('config_file',
+                                                          'rtmdet_tiny_8xb32-300e_coco.py')
+        checkpoint_file = self.model_entity.configuration.get('checkpoint_file',
+                                                              'rtmdet_tiny_8xb32-300e_coco_20220902_112414-78e30dcc.pth')
 
         if not os.path.exists(config_file) or not os.path.exists(checkpoint_file):
-            logger.info("Downloading mmdetection artifacts")
-            os.system("mim download mmdet --config rtmdet_tiny_8xb32-300e_coco --dest .")
-
-        with open("./labels.txt", "r") as file:
-            self.coco_labels = [line.replace('\n', '') for line in file.readlines()]
+            logger.info("Downloading mmdet artifacts")
+            download_status = subprocess.Popen(f"mim download mmdet --config {model_name} --dest .",
+                                               stdout=subprocess.PIPE,
+                                               stderr=subprocess.PIPE,
+                                               shell=True)
+            download_status.wait()
+            if download_status.returncode != 0:
+                (out, err) = download_status.communicate()
+                raise Exception(f'Failed to download mmdet artifacts: {err}')
 
         logger.info("MMDetection artifacts downloaded successfully, Loading Model")
-        self.model = init_detector(config_file, checkpoint_file, device='cpu')  # or device='cuda:0'
+        device = self.model_entity.configuration.get('device', 'cuda:0')
+        if device == 'cuda:0':
+            device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+        self.confidence_thr = self.model_entity.configuration.get('confidence_thr', 0.4)
+        logger.info("MMDetection artifacts downloaded successfully, Loading Model")
+        self.model = init_detector(config_file, checkpoint_file, device=device)  # or device='cuda:0'
         logger.info("Model Loaded Successfully")
 
     def predict(self, batch, **kwargs):
@@ -34,7 +49,6 @@ class MMDetection(dl.BaseModelAdapter):
             detections = inference_detector(self.model, image).pred_instances
             all_bboxes = detections.bboxes
             all_labels = detections.labels
-
             for i, score in enumerate(detections.scores):
                 detection_score = float(score)
                 if detection_score >= 0.4:
@@ -47,7 +61,7 @@ class MMDetection(dl.BaseModelAdapter):
                                                                        left=min_x,
                                                                        bottom=max_y,
                                                                        right=max_x,
-                                                                       label=self.coco_labels[label_id]),
+                                                                       label=self.model_entity.labels[label_id]),
                                           model_info={'name': self.model_entity.name,
                                                       'model_id': self.model_entity.id,
                                                       'confidence': detection_score})
