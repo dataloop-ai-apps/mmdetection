@@ -12,6 +12,12 @@ logger = logging.getLogger('MMDetection')
                               name='model-adapter',
                               init_inputs={'model_entity': dl.Model})
 class MMDetection(dl.BaseModelAdapter):
+    def __init__(self, model_entity: dl.Model):
+        self.model = None
+        self.confidence_thr = model_entity.configuration.get('confidence_thr', 0.4)
+        self.device = model_entity.configuration.get('device', None)
+        super(MMDetection, self).__init__(model_entity=model_entity)
+
     def load(self, local_path, **kwargs):
 
         model_name = self.model_entity.configuration.get('model_name',
@@ -28,17 +34,15 @@ class MMDetection(dl.BaseModelAdapter):
                                                stderr=subprocess.PIPE,
                                                shell=True)
             download_status.wait()
+            (out, err) = download_status.communicate()
             if download_status.returncode != 0:
-                (out, err) = download_status.communicate()
                 raise Exception(f'Failed to download mmdet artifacts: {err}')
-
+            logger.info(f"MMDetection artifacts downloaded successfully, Loading Model {out}")
         logger.info("MMDetection artifacts downloaded successfully, Loading Model")
-        device = self.model_entity.configuration.get('device', 'cuda:0')
-        if device == 'cuda:0':
-            device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-        self.confidence_thr = self.model_entity.configuration.get('confidence_thr', 0.4)
-        logger.info("MMDetection artifacts downloaded successfully, Loading Model")
-        self.model = init_detector(config_file, checkpoint_file, device=device)  # or device='cuda:0'
+        if self.device is None:
+            self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+        logger.info(f"Loading model on device {self.device}")
+        self.model = init_detector(config_file, checkpoint_file, device=self.device)
         logger.info("Model Loaded Successfully")
 
     def predict(self, batch, **kwargs):
@@ -47,16 +51,14 @@ class MMDetection(dl.BaseModelAdapter):
         for image in batch:
             image_annotations = dl.AnnotationCollection()
             detections = inference_detector(self.model, image).pred_instances
-            all_bboxes = detections.bboxes
-            all_labels = detections.labels
-            for i, score in enumerate(detections.scores):
+            for bbox, label, score in zip(detections.bboxes, detections.labels, detections.scores):
                 detection_score = float(score)
-                if detection_score >= 0.4:
-                    min_x = int(all_bboxes[i][0])
-                    min_y = int(all_bboxes[i][1])
-                    max_x = int(all_bboxes[i][2])
-                    max_y = int(all_bboxes[i][3])
-                    label_id = int(all_labels[i])
+                if detection_score >= self.confidence_thr:
+                    min_x = int(bbox[0])
+                    min_y = int(bbox[1])
+                    max_x = int(bbox[2])
+                    max_y = int(bbox[3])
+                    label_id = int(label)
                     image_annotations.add(annotation_definition=dl.Box(top=min_y,
                                                                        left=min_x,
                                                                        bottom=max_y,

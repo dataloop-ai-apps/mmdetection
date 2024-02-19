@@ -23,7 +23,7 @@
         "runtime": {
           "podType": "highmem-xs",
           "concurrency": 1,
-          "runnerImage": "shadimahameeddl/openmmlabs-dl:latest",
+          "runnerImage": "shadimahameeddl/mm-dl:latest",
           "autoscaler": {
             "type": "rabbitmq",
             "minReplicas": 0,
@@ -55,7 +55,13 @@
                 "description": "List of items to run inference on"
               }
             ],
-            "output": [],
+            "output": [
+              {
+                "type": "Annotation[]",
+                "name": "annotations",
+                "description": "List of annotations"
+              }
+            ],
             "displayName": "Predict Items",
             "displayIcon": "",
             "description": "MMDetection predict function"
