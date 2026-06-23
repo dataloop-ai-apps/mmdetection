@@ -2,7 +2,7 @@
 
 ## Introduction
 
-An [MMDetection ](https://github.com/open-mmlab/mmdetection/tree/main) Model Adapter implementation for Dataloop
+An [MMDetection ](https://github.com/open-mmlab/mmdetection/tree/main) Model Adapter implementation for DDOE
 
 ## Installing in the Platform
 Navigate to eh marketplace, search for mmdetection and click "Install"!
@@ -45,7 +45,7 @@ the [documentation](https://developers.dataloop.ai/tutorials/model_management/ai
 
 The best way to perform predictions in the platform is to add a "Predict Node" to a pipeline.
 
-Click [here](https://developers.dataloop.ai/onboarding/08_pipelines/) for more information on Dataloop Pipelines.
+Click [here](https://developers.dataloop.ai/onboarding/08_pipelines/) for more information on DDOE Pipelines.
 
 ### Predicting with the SDK
 
